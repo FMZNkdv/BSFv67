@@ -3,7 +3,7 @@ This is the Brawl Stars Core, version 67.264.1, written in Zig.
 
 ## Requirements
 
-- Zig (0.15.2)
+- Zig (0.16.0)
 - Windows\Linux (tested only on x86)
 - Brain..? 🧑🏿‍🦯
 

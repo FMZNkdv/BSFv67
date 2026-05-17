@@ -5,7 +5,8 @@ const OwnData = @import("../../Transmit/Home/OwnData.zig");
 
 pub const Auth = struct {
     stream: Stream,
-    conn: std.net.Stream,
+    conn: std.Io.net.Stream,
+    io: std.Io,
     highId: i32 = 0,
     lowId: i32 = 0,
     token: []u8 = &[_]u8{},
@@ -13,10 +14,11 @@ pub const Auth = struct {
     build: i32 = 0,
     content: i32 = 0,
 
-    pub fn init(allocator: std.mem.Allocator, payload: []const u8, conn: std.net.Stream) !Auth {
+    pub fn init(allocator: std.mem.Allocator, payload: []const u8, conn: std.Io.net.Stream, io: std.Io) !Auth {
         return .{
             .stream = try Stream.initWithBytes(allocator, payload),
             .conn = conn,
+            .io = io,
         };
     }
 
@@ -34,13 +36,17 @@ pub const Auth = struct {
     }
 
     pub fn process(self: *Auth) !void {
-        std.Thread.sleep(2 * std.time.ns_per_s);
+        const duration = std.Io.Clock.Duration{
+            .raw = .{ .nanoseconds = 1 * std.time.ns_per_s },
+            .clock = .awake,
+        };
+        try std.Io.Clock.Duration.sleep(duration, self.io);
 
-        var ok = AuthOk.AuthOk.init(self.stream.allocator, self.conn);
+        var ok = AuthOk.AuthOk.init(self.stream.allocator, self.conn, self.io);
         defer ok.deinit();
         try ok.send();
 
-        var home = OwnData.OwnData.init(self.stream.allocator, self.conn);
+        var home = OwnData.OwnData.init(self.stream.allocator, self.conn, self.io);
         defer home.deinit();
         try home.send();
     }

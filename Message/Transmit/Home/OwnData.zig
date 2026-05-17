@@ -5,8 +5,8 @@ const Stream = @import("../../../Core/Byte/Stream.zig");
 pub const OwnData = struct {
     msg: Piranha,
 
-    pub fn init(allocator: std.mem.Allocator, conn: std.net.Stream) OwnData {
-        return .{ .msg = Piranha.init(allocator, 24101, 1, conn) };
+    pub fn init(allocator: std.mem.Allocator, conn: std.Io.net.Stream, io: std.Io) OwnData {
+        return .{ .msg = Piranha.init(allocator, 24101, 1, conn, io) };
     }
 
     pub fn deinit(self: *OwnData) void {

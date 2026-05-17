@@ -9,7 +9,7 @@ pub const Stream = struct {
     pub fn init(allocator: std.mem.Allocator) Stream {
         return .{
             .allocator = allocator,
-            .buffer = .{},
+            .buffer = .{ .items = &.{}, .capacity = 0 },
             .offset = 0,
             .bitOffset = 0,
         };

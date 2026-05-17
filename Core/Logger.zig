@@ -5,37 +5,26 @@ threadlocal var addrBuf: [64]u8 = undefined;
 threadlocal var addrLen: usize = 0;
 
 fn termWidth() usize {
-    switch (builtin.os.tag) {
-        .windows => {
-            const w32 = std.os.windows;
-            const handle = w32.kernel32.GetStdHandle(@bitCast(@as(i32, -12))) orelse return 80;
-            var info: w32.CONSOLE_SCREEN_BUFFER_INFO = undefined;
-            if (w32.kernel32.GetConsoleScreenBufferInfo(handle, &info) == 0) return 80;
-            const w: usize = @intCast(info.dwSize.X);
-            return if (w < 20) 80 else w;
-        },
-        else => {
-            const Winsize = extern struct {
-                ws_row: u16,
-                ws_col: u16,
-                ws_xpixel: u16,
-                ws_ypixel: u16,
-            };
-            var ws: Winsize = std.mem.zeroes(Winsize);
-            const TIOCGWINSZ: usize = switch (builtin.os.tag) {
-                .macos, .ios => 0x40087468,
-                else => 0x5413,
-            };
-            const rc = std.posix.system.syscall3(
-                .ioctl,
-                @as(usize, @intCast(std.posix.STDOUT_FILENO)),
-                TIOCGWINSZ,
-                @intFromPtr(&ws),
-            );
-            if (rc != 0 or ws.ws_col < 20) return 80;
-            return ws.ws_col;
-        },
-    }
+    if (builtin.os.tag == .windows) return 80;
+    const Winsize = extern struct {
+        ws_row: u16,
+        ws_col: u16,
+        ws_xpixel: u16,
+        ws_ypixel: u16,
+    };
+    var ws: Winsize = std.mem.zeroes(Winsize);
+    const TIOCGWINSZ: usize = switch (builtin.os.tag) {
+        .macos, .ios => 0x40087468,
+        else => 0x5413,
+    };
+    const rc = std.os.linux.syscall3(
+        .ioctl,
+        @as(usize, 1),
+        TIOCGWINSZ,
+        @intFromPtr(&ws),
+    );
+    if (rc != 0 or ws.ws_col < 20) return 80;
+    return ws.ws_col;
 }
 
 fn emit(comptime fmt: []const u8, args: anytype) void {
@@ -44,46 +33,17 @@ fn emit(comptime fmt: []const u8, args: anytype) void {
     std.debug.print("{s}", .{s});
 }
 
-fn pad(n: usize) void {
-    var i: usize = 0;
-    while (i < n) : (i += 1) std.debug.print(" ", .{});
-}
-
-fn visibleLen(s: []const u8) usize {
-    var count: usize = 0;
-    var i: usize = 0;
-    while (i < s.len) {
-        const b = s[i];
-        const w: usize = if (b & 0x80 == 0) 1 else if (b & 0xE0 == 0xC0) 2 else if (b & 0xF0 == 0xE0) 3 else 4;
-        count += 1;
-        i += w;
-    }
-    return count;
-}
-
 fn center(visible: usize) void {
     const W = termWidth();
-    if (W > visible) pad((W - visible) / 2);
+    if (W > visible) {
+        var i: usize = 0;
+        while (i < (W - visible) / 2) : (i += 1) std.debug.print(" ", .{});
+    }
 }
 
-pub fn setAddr(a: std.net.Address) void {
-    var tmp: [64]u8 = undefined;
-    const full = std.fmt.bufPrint(&tmp, "{f}", .{a}) catch {
-        addrLen = 0;
-        return;
-    };
-    var i = full.len;
-    while (i > 0) : (i -= 1) {
-        if (full[i - 1] == ':') {
-            const slice = full[0 .. i - 1];
-            const copy_len = @min(slice.len, addrBuf.len);
-            @memcpy(addrBuf[0..copy_len], slice[0..copy_len]);
-            addrLen = copy_len;
-            return;
-        }
-    }
-    const copy_len = @min(full.len, addrBuf.len);
-    @memcpy(addrBuf[0..copy_len], full[0..copy_len]);
+pub fn setAddrStr(ip: []const u8) void {
+    const copy_len = @min(ip.len, addrBuf.len);
+    @memcpy(addrBuf[0..copy_len], ip[0..copy_len]);
     addrLen = copy_len;
 }
 
@@ -109,7 +69,6 @@ pub fn banner() void {
         "\x1b[38;2;255;180;220m",
     };
     const lineLen = 46;
-
     emit("\n", .{});
     for (lines, 0..) |line, idx| {
         center(lineLen);

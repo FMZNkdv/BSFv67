@@ -6,17 +6,18 @@ pub fn dispatch(
     allocator: std.mem.Allocator,
     id: u16,
     payload: []const u8,
-    stream: std.net.Stream,
+    stream: std.Io.net.Stream,
+    io: std.Io,
 ) !void {
     switch (id) {
         10100 => {
-            var msg = try Hello.Hello.init(allocator, payload, stream);
+            var msg = try Hello.Hello.init(allocator, payload, stream, io);
             defer msg.deinit();
             try msg.decode();
             try msg.process();
         },
         10101 => {
-            var msg = try Auth.Auth.init(allocator, payload, stream);
+            var msg = try Auth.Auth.init(allocator, payload, stream, io);
             defer msg.deinit();
             try msg.decode();
             try msg.process();

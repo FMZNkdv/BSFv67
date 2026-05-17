@@ -6,19 +6,22 @@ pub const Piranha = struct {
     stream: Stream,
     id: u16,
     version: u16,
-    conn: std.net.Stream,
+    conn: std.Io.net.Stream,
+    io: std.Io,
 
     pub fn init(
         allocator: std.mem.Allocator,
         id: u16,
         version: u16,
-        conn: std.net.Stream,
+        conn: std.Io.net.Stream,
+        io: std.Io,
     ) Piranha {
         return .{
             .stream = Stream.init(allocator),
             .id = id,
             .version = version,
             .conn = conn,
+            .io = io,
         };
     }
 
@@ -38,8 +41,11 @@ pub const Piranha = struct {
         header[4] = @truncate(bodyLen & 0xFF);
         std.mem.writeInt(u16, header[5..7], self.version, .big);
 
-        try self.conn.writeAll(&header);
-        try self.conn.writeAll(self.stream.buffer.items);
+        var wbuf: [4096]u8 = undefined;
+        var writer = self.conn.writer(self.io, &wbuf);
+        try writer.interface.writeAll(&header);
+        try writer.interface.writeAll(self.stream.buffer.items);
+        try writer.interface.flush();
 
         Logger.packetOut(self.id, Logger.packetName(self.id), bodyLen);
     }

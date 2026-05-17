@@ -5,8 +5,8 @@ const Stream = @import("../../../Core/Byte/Stream.zig");
 pub const AuthOk = struct {
     msg: Piranha,
 
-    pub fn init(allocator: std.mem.Allocator, conn: std.net.Stream) AuthOk {
-        return .{ .msg = Piranha.init(allocator, 20104, 1, conn) };
+    pub fn init(allocator: std.mem.Allocator, conn: std.Io.net.Stream, io: std.Io) AuthOk {
+        return .{ .msg = Piranha.init(allocator, 20104, 1, conn, io) };
     }
 
     pub fn deinit(self: *AuthOk) void {
@@ -15,7 +15,7 @@ pub const AuthOk = struct {
 
     pub fn encode(self: *AuthOk) void {
         const w = Stream.Writer.init(&self.msg.stream);
-        const ts = std.time.milliTimestamp();
+        const ts = std.Io.Timestamp.now(self.msg.io, .real).toMilliseconds();
         var tsBuf: [24]u8 = undefined;
         const tsStr = std.fmt.bufPrint(&tsBuf, "{d}", .{ts}) catch "";
         w.long(0, 1);
